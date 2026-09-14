@@ -1,0 +1,89 @@
+services:
+  api:
+    build:
+      context: .
+      dockerfile: ./docker/local/django/Dockerfile
+    image: ${API_IMAGE_NAME?A variável API_IMAGE_NAME precisa ser definida}:${API_IMAGE_TAG?A variável API_IMAGE_TAG precisa ser definida}
+    command: /start
+    container_name: boilerplatejwt
+    security_opt:
+      - no-new-privileges:true
+    environment:
+      - TZ=America/Recife
+    volumes:
+      - .:/app
+      - static_volume:/data/boilerplatejwt/staticfiles
+      - media_volume:/data/boilerplatejwt/mediafiles
+    expose:
+      - "8000"
+    ports:
+      - "8000:8000"
+    env_file:
+      - ./.envs/.local/.django
+      - ./.envs/.local/.postgres
+    depends_on:
+      - postgres
+      - redis
+    networks:
+      - boilerplatejwt
+    deploy:
+      resources:
+        limits:
+          memory: 512M       # Reduzido de 1024M para evitar OOM
+          cpus: "0.50"       # Reduzido para evitar picos de carga
+        reservations:
+          memory: 256M       # Mínimo garantido
+          cpus: "0.25"
+      restart_policy:
+        condition: any       # Tenta reiniciar sempre
+        delay: 10s           # Tempo de espera para a RAM "limpar"
+        window: 120s
+      update_config:
+        parallelism: 1
+        delay: 10s
+        order: start-first # Iniciar a nova instância antes de derrubar a antiga
+        failure_action: rollback # Reverte em caso de falha
+    healthcheck:
+      test: curl -f http://localhost:8000/health/ || exit 1
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+
+  postgres:
+    build:
+      context: .
+      dockerfile: ./docker/local/postgres/Dockerfile
+    container_name: postgres
+    environment:
+      - TZ=America/Recife
+    volumes:
+      - local_postgres_data:/var/lib/postgresql/data
+      - ${HOME}/backups/prd:/backups
+      # - ./db_backups:/backups (if you want to mount the backups folder inside the project)
+    env_file:
+      - ./.envs/.local/.postgres
+    networks:
+      - boilerplatejwt
+    ports:
+      - "5432:5432"
+    command: postgres -p 5432
+
+  redis:
+    image: redis:6-alpine
+    container_name: redis
+    ports:
+      - "6379:6379"
+    networks:
+      - boilerplatejwt
+
+networks:
+  boilerplatejwt:
+    driver: bridge
+    external: true
+
+volumes:
+  local_postgres_data: {}
+  local_postgres_data_backups: {}
+  static_volume:
+  media_volume:

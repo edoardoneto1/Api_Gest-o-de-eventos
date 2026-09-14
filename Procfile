@@ -1,0 +1,1 @@
+web: gunicorn boilerplatejwt.wsgi:application

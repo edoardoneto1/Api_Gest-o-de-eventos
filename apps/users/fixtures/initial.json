@@ -1,0 +1,27 @@
+[
+{
+    "model": "users.user",
+    "pk": 1,
+    "fields": {
+        "password": "pbkdf2_sha256$720000$U7Bh3IZlEo9ipK70ggi5DL$9ieHvVeq9MTm1QCbV35CLDAdh64PFKPM4fljElYiJLI=",
+        "last_login": "2024-01-01T00:00:00.000Z",
+        "is_superuser": true,
+        "id": "854153cc-6efa-4c86-a8d3-0033f303f5b5",
+        "created_at": "2022-04-01T00:00:00.000Z",
+        "created_by": null,
+        "updated_at": "2022-04-01T00:00:00.000Z",
+        "updated_by": null,
+        "deleted_at": null,
+        "deleted_by": null,
+        "email": "admin@boilerplatejwt.com.br",
+        "username": "admin",
+        "status": "ACTIVE",
+        "is_staff": true,
+        "is_active": true,
+        "date_joined": "2024-01-01T00:00:00.000Z",
+        "first_login_accomplished": true,
+        "groups": [],
+        "user_permissions": []
+    }
+}
+]
