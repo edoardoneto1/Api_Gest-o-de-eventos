@@ -9,10 +9,21 @@ converting the Django
 """
 import logging
 
-from deep_translator import GoogleTranslator
+try:
+    from deep_translator import GoogleTranslator  # type: ignore[import-not-found]
+except ImportError:  # pragma: no cover
+    GoogleTranslator = None
+
 from rest_framework import status
 from rest_framework.exceptions import ValidationError as DRFValidationError
 from rest_framework.views import Response, exception_handler as drf_exception_handler
+
+
+def _translate_text(value, source="en", target="pt"):
+    """Translate text when the optional dependency is available."""
+    if GoogleTranslator is None:
+        return value
+    return GoogleTranslator(source=source, target=target).translate(value)
 
 
 def exception_handler(exc, context):

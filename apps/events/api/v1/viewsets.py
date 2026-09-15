@@ -1,11 +1,10 @@
 import uuid
 from django.utils import timezone
-from rest_framework import status
+from rest_framework import status, viewsets
 from rest_framework.decorators import action
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 
-from apps.commons.api.v1.viewsets import BaseModelApiViewSet, BaseReadOnlyModelViewSet
 from apps.events.models import Certificado, Evento, Inscricao
 from apps.events.api.v1.serializers import (
     CertificadoSerializer,
@@ -13,31 +12,29 @@ from apps.events.api.v1.serializers import (
     InscricaoSerializer,
 )
 
-class EventoViewSet(BaseModelApiViewSet):
-    """API ViewSet para Eventos.
 
-    Fornece CRUD completo utilizando as regras de auditoria, soft delete
-    e filtros automatizados do BaseModelApiViewSet.
-    """
+class EventoViewSet(viewsets.ModelViewSet):
+    """API ViewSet para Eventos (CRUD Completo)."""
 
-    model = Evento
+    queryset = Evento.objects.filter(is_active=True)
     serializer_class = EventoSerializer
+    permission_classes = [IsAuthenticated]
+    lookup_field = "id"
+    lookup_url_kwarg = "id"
 
     def perform_create(self, serializer):
-        """Sobrescreve para atribuir o usuário logado como organizador do evento."""
-        if self.request.user.is_authenticated:
-            serializer.validated_data["organizador"] = self.request.user
-        super().perform_create(serializer)
+        """Atribui o usuário logado diretamente como organizador."""
+        serializer.save(organizador=self.request.user)
 
-class InscricaoViewSet(BaseModelApiViewSet):
-    """API ViewSet para Inscrições em Eventos.
 
-    Permite que participantes se inscrevam, listem suas inscrições
-    e realizem a confirmação de presença (check-in).
-    """
+class InscricaoViewSet(viewsets.ModelViewSet):
+    """API ViewSet para Inscrições em Eventos."""
 
-    model = Inscricao
+    queryset = Inscricao.objects.filter(is_active=True)
     serializer_class = InscricaoSerializer
+    permission_classes = [IsAuthenticated]
+    lookup_field = "id"
+    lookup_url_kwarg = "id"
 
     def get_queryset(self):
         """Restringe a listagem padrão para usuários não-staff apenas às suas próprias inscrições."""
@@ -48,19 +45,17 @@ class InscricaoViewSet(BaseModelApiViewSet):
 
     def perform_create(self, serializer):
         """Garante que a inscrição fique vinculada ao participante logado."""
-        if self.request.user.is_authenticated:
-            serializer.validated_data["participante"] = self.request.user
-        super().perform_create(serializer)
+        serializer.save(participante=self.request.user)
 
     @action(detail=False, methods=["get"], url_path="minhas-inscricoes")
     def minhas_inscricoes(self, request, *args, **kwargs):
         """Endpoint explícito para retornar todas as inscrições ativas do usuário logado."""
-        queryset = self.model.objects.filter(participante=request.user, is_active=True)
+        queryset = self.get_queryset().filter(participante=request.user)
         serializer = self.get_serializer(queryset, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
 
     @action(detail=True, methods=["post"], url_path="check-in")
-    def check_in(self, request, id=None, *args, **kwargs):
+    def check_in(self, request, pk=None, *args, **kwargs):
         """Realiza o check-in do participante no evento e gera o certificado caso elegível."""
         inscricao = self.get_object()
 
@@ -74,9 +69,6 @@ class InscricaoViewSet(BaseModelApiViewSet):
         inscricao.data_checkin = timezone.now()
         inscricao.updated_by = request.user
         inscricao.save()
-
-        # Registra a alteração na auditoria
-        self._log_on_update(self.get_serializer(inscricao))
 
         # Emissão automática de certificado se ainda não existir
         if not hasattr(inscricao, "certificado"):
@@ -92,14 +84,15 @@ class InscricaoViewSet(BaseModelApiViewSet):
             status=status.HTTP_200_OK,
         )
 
-class CertificadoViewSet(BaseReadOnlyModelViewSet):
-    """API ViewSet para Certificados (Apenas Leitura).
 
-    Permite consulta aos certificados gerados e validação pública.
-    """
+class CertificadoViewSet(viewsets.ReadOnlyModelViewSet):
+    """API ViewSet para Certificados (Apenas Leitura)."""
 
-    model = Certificado
+    queryset = Certificado.objects.filter(is_active=True)
     serializer_class = CertificadoSerializer
+    permission_classes = [IsAuthenticated]
+    lookup_field = "id"
+    lookup_url_kwarg = "id"
 
     def get_queryset(self):
         """Filtra certificados visíveis apenas para o próprio participante (se não for staff)."""
@@ -115,8 +108,7 @@ class CertificadoViewSet(BaseReadOnlyModelViewSet):
         permission_classes=[AllowAny],
     )
     def validar(self, request, *args, **kwargs):
-        """Endpoint público para conferência e validação de autenticidade do certificado.
-        """
+        """Endpoint público para conferência e validação de autenticidade do certificado."""
         codigo = request.query_params.get("codigo")
         if not codigo:
             return Response(
@@ -125,15 +117,14 @@ class CertificadoViewSet(BaseReadOnlyModelViewSet):
             )
 
         try:
-            certificado = self.model.objects.get(codigo_validacao=codigo, is_active=True)
+            certificado = self.queryset.get(codigo_validacao=codigo)
             serializer = self.get_serializer(certificado)
             return Response(
                 {"valido": True, "certificado": serializer.data},
                 status=status.HTTP_200_OK,
             )
-        except self.model.DoesNotExist:
+        except Certificado.DoesNotExist:
             return Response(
                 {"valido": False, "detail": "Certificado não encontrado ou inválido."},
                 status=status.HTTP_404_NOT_FOUND,
             )
-

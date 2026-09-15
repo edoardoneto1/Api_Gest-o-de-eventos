@@ -197,3 +197,5 @@ test.py
 
 # others
 VERSION
+boilerplatejwt/logs/
+*.log
