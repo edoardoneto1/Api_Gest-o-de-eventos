@@ -31,7 +31,25 @@ class Evento(BaseModel):
     class Meta(BaseModel.Meta):
         db_table = 'eventos'
         ordering = ['-data_inicio']
-
+        constraints = [
+            models.CheckConstraint(
+                check=models.Q(data_fim__gt=models.F("data_inicio")),
+                name="evento_data_fim_apos_inicio"
+            ),
+            models.CheckConstraint(
+                check=models.Q(vagas_totais__gt=0),
+                name="evento_vagas_totais_positivas"
+            ),
+            models.CheckConstraint(
+                check=models.Q(carga_horaria_horas__gte=0),
+                name="evento_carga_horaria_nao_negativa"
+            ),
+            models.CheckConstraint(
+                check=models.Q(tipo__in=["PRESENCIAL", "ONLINE", "HIBRIDO"]),
+                name="evento_tipo_valido"
+            )
+        ]
+    
     def __str__(self):
         return self.titulo
 
