@@ -1,6 +1,7 @@
 from django.utils import timezone
 from rest_framework import serializers
 
+from apps.commons.api.v1.serializers import UUIDPrimaryKeyRelatedField
 from apps.events.models import Certificado, Evento, Inscricao
 
 
@@ -45,6 +46,9 @@ class EventoSerializer(serializers.ModelSerializer):
 
 
 class InscricaoSerializer(serializers.ModelSerializer):
+    evento = UUIDPrimaryKeyRelatedField(
+        queryset=Evento.objects.filter(is_active=True)
+    )
     participante_nome = serializers.ReadOnlyField(source="participante.get_full_name")
     evento_titulo = serializers.ReadOnlyField(source="evento.titulo")
 
@@ -72,16 +76,28 @@ class InscricaoSerializer(serializers.ModelSerializer):
             "updated_at",
         ]
 
+    def to_representation(self, instance):
+        """Força o campo 'evento' a retornar o UUID (não o pkid)."""
+        representation = super().to_representation(instance)
+        representation["evento"] = str(instance.evento.id)
+        return representation
+
     def validate_evento(self, value):
         if not value.is_active:
-            raise serializers.ValidationError("Não é possível se inscrever em um evento inativo.")
+            raise serializers.ValidationError(
+                "Não é possível se inscrever em um evento inativo."
+            )
 
         if value.data_fim < timezone.now():
-            raise serializers.ValidationError("Não é possível se inscrever em um evento que já encerrou.")
+            raise serializers.ValidationError(
+                "Não é possível se inscrever em um evento que já encerrou."
+            )
 
         vagas_preenchidas = value.inscricoes.filter(is_active=True).count()
         if vagas_preenchidas >= value.vagas_totais:
-            raise serializers.ValidationError("Este evento não possui mais vagas disponíveis.")
+            raise serializers.ValidationError(
+                "Este evento não possui mais vagas disponíveis."
+            )
 
         return value
 
@@ -91,8 +107,12 @@ class InscricaoSerializer(serializers.ModelSerializer):
         evento = attrs.get("evento")
 
         if user and user.is_authenticated and evento:
-            if Inscricao.objects.filter(evento=evento, participante=user, is_active=True).exists():
-                raise serializers.ValidationError("Você já está inscrito neste evento.")
+            if Inscricao.objects.filter(
+                evento=evento, participante=user, is_active=True
+            ).exists():
+                raise serializers.ValidationError(
+                    "Você já está inscrito neste evento."
+                )
 
         return attrs
 
