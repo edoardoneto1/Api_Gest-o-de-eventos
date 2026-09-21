@@ -2,7 +2,11 @@ import uuid
 from django.utils import timezone
 from rest_framework import status, viewsets
 from rest_framework.decorators import action
-from rest_framework.permissions import AllowAny, IsAuthenticated
+from rest_framework.permissions import (
+    AllowAny,
+    IsAuthenticated,
+    IsAuthenticatedOrReadOnly,
+)
 from rest_framework.response import Response
 
 from apps.events.models import Certificado, Evento, Inscricao
@@ -18,7 +22,7 @@ class EventoViewSet(viewsets.ModelViewSet):
 
     queryset = Evento.objects.filter(is_active=True)
     serializer_class = EventoSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticatedOrReadOnly]
     lookup_field = "id"
     lookup_url_kwarg = "id"
 
