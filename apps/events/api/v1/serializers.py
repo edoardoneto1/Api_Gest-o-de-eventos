@@ -49,6 +49,7 @@ class InscricaoSerializer(serializers.ModelSerializer):
     evento = UUIDPrimaryKeyRelatedField(
         queryset=Evento.objects.filter(is_active=True)
     )
+    evento_detalhes = EventoSerializer(source="evento", read_only=True)
     participante_nome = serializers.ReadOnlyField(source="participante.get_full_name")
     evento_titulo = serializers.ReadOnlyField(source="evento.titulo")
 
@@ -57,6 +58,7 @@ class InscricaoSerializer(serializers.ModelSerializer):
         fields = [
             "id",
             "evento",
+            "evento_detalhes",
             "evento_titulo",
             "participante",
             "participante_nome",
