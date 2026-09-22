@@ -69,6 +69,13 @@ class InscricaoViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
+        # valida se o evento já começou
+        if inscricao.evento.data_inicio > timezone.now():
+            return Response(
+                {"detail": "O check-in só estará disponível a partir do início do evento."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
         inscricao.presenca_confirmada = True
         inscricao.data_checkin = timezone.now()
         inscricao.updated_by = request.user
